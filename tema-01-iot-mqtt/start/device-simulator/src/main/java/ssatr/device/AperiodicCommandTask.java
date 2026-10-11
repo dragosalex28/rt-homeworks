@@ -46,5 +46,81 @@ public class AperiodicCommandTask implements Runnable {
         //     oprească taskul: publicați "ERROR <motiv>"
         //
         // Vezi exemplul exemple/01-taskuri/.../AperiodicTaskExample.java
+
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                String command = commands.take();
+
+                String[] parts = command.trim().split("\\s+");
+
+                String response;
+
+                try {
+                    switch (parts[0].toUpperCase()) {
+
+                        case "SET_INTERVAL": {
+                            long interval = Long.parseLong(parts[1]);
+
+                            if (interval <= 0) {
+                                response = "ERROR Interval invalid";
+                            } else {
+                                periodic.setPeriodMs(interval);
+                                response = "OK SET_INTERVAL " + interval;
+                            }
+                            break;
+                        }
+
+                        case "SET_THRESHOLD": {
+                            double threshold = Double.parseDouble(parts[1]);
+
+                            if (!Double.isFinite(threshold)) {
+                                response = "ERROR Prag invalid";
+                            } else {
+                                periodic.setThreshold(threshold);
+                                response = "OK SET_THRESHOLD " + threshold;
+                            }
+                            break;
+                        }
+
+                        case "RESET": {
+                            sensor.reset();
+                            response = "OK RESET";
+                            break;
+                        }
+
+                        case "STATUS": {
+                            response = "OK STATUS interval="
+                                    + periodic.getPeriodMs()
+                                    + " threshold="
+                                    + periodic.getThreshold();
+                            break;
+                        }
+
+                        default: {
+                            response = "ERROR Comanda necunoscuta";
+                            break;
+                        }
+                    }
+
+                } catch (NumberFormatException |
+                         ArrayIndexOutOfBoundsException e) {
+
+                    response = "ERROR Parametru invalid";
+                }
+
+                long timestamp = System.currentTimeMillis();
+
+                String message = deviceId + ";" + timestamp
+                        + ";" + response;
+
+                mqtt.publish(Config.statusTopic(deviceId), message);
+
+                System.out.println("[aperiodic] " + message);
+
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
     }
 }

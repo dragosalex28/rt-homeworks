@@ -1,5 +1,7 @@
 package ssatr.device;
 
+import java.beans.IntrospectionException;
+import java.util.Locale;
 import java.util.concurrent.BlockingQueue;
 
 /**
@@ -37,5 +39,28 @@ public class SporadicAlarmTask implements Runnable {
         //      citit din PeriodicTelemetryTask; alegeți și justificați în raport)
         //
         // Vezi exemplul exemple/01-taskuri/.../SporadicTaskExample.java
+
+        long lastRelease = 0;
+
+        while(!Thread.currentThread().isInterrupted()){
+            try{
+                double temperature = alarmEvents.take();
+                long now = System.nanoTime();
+                if(lastRelease !=0 && now - lastRelease < MIN_INTERARRIVAL_MS * 1_000_000L) {
+                    System.out.println("[sporadic] Alarma respinsa: interval prea scurt");
+                    continue;
+                }
+
+                lastRelease = now;
+                long timestamp = System.currentTimeMillis();
+                double threshold = 28.0;
+                String message = deviceId + ";" + timestamp + ";" + String.format(Locale.US, "%.2f", temperature) + ";" + String.format(Locale.US, "%.2f", threshold);
+                mqtt.publish(Config.alarmTopic(deviceId), message);
+                System.out.println("[sporadic] Alarma publicata: " + message);
+            } catch (InterruptedException e){
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
     }
 }
